@@ -68,6 +68,9 @@ Thumbs.db
 # Generated scripts/CSVs and machine-specific paths from the MAS pipeline
 Pre Processed Dataset/
 
+# Run store — persisted run metadata (survives reloads but is machine-specific)
+run_store/
+
 # Optional: large local datasets (uncomment if you keep CSVs inside the repo tree)
 # *.csv
 # *.parquet

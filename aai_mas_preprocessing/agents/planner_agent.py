@@ -22,29 +22,88 @@ logger = logging.getLogger(__name__)
 _SYSTEM_PROMPT = (
     "You are a meticulous data preprocessing expert for ML pipelines. "
     "You only see dataset metadata — never raw rows. "
-    "Always return a valid JSON object and nothing else."
+    "Always return a valid JSON object and nothing else. "
+    "Your guiding principle is MINIMAL, JUSTIFIED preprocessing: "
+    "only add a step if there is a clear, specific reason it will help the ML model. "
+    "When in doubt, leave the data alone."
 )
 
 _USER_TEMPLATE = """\
 Dataset report (JSON):
 {report_json}
 
-Analyze the report and return a JSON object with exactly these four keys:
-- cleaning_steps: list of steps for missing values, duplicates, ID columns, \
-datetime parsing, free-text removal
-- outlier_steps: list of steps per numeric column needing outlier treatment, \
-each with: column, method (iqr|zscore|isolation_forest), action (clip|remove|flag)
-- feature_steps: list of encoding/scaling/transform steps per column, each with: \
-column, technique (ohe|label_encode|target_encode|minmax|standard|log|cyclical)
-- validation_steps: list of post-processing checks to verify data quality
+Task type: {task_type}
 
-Each step object must have: step_name (str), columns (list[str]), reason (str), \
+Analyze the report and return a JSON object with exactly these four keys:
+- cleaning_steps
+- outlier_steps
+- feature_steps
+- validation_steps
+
+Each step object must have: step_name (str), column (str), reason (str), \
 action (str — concrete instruction for code generation).
 
-For classification tasks with class imbalance > 0.7, add a note in validation_steps \
-recommending class_weight='balanced'.
+━━━ CLEANING STEPS ━━━
+Include a step only for:
+• Columns with null values → specify the imputation strategy (median for numeric, \
+mode for categorical).
+• Duplicate rows → drop them if duplicates exist.
+• Pure ID columns (unique count ≈ row count, no predictive value) → drop them.
+• Datetime string columns → parse to datetime only; do NOT extract components here.
+• Free-text columns (high cardinality strings with no obvious categories) → drop them.
+DO NOT add cleaning steps for columns that are already clean.
 
-Task type from report: {task_type}\
+━━━ OUTLIER STEPS ━━━
+Only add an outlier step for a numeric column if ALL of these are true:
+1. The column is NOT the target column.
+2. The profiler report shows the column has significant skewness (|skew| > 2) \
+OR the max/min ratio suggests extreme values.
+3. The column is not a flag/indicator/binary column.
+Choose: method = iqr (default), zscore (for normally distributed), \
+isolation_forest (for multi-dimensional anomalies only).
+Action = clip (safest default). Use remove only if outliers are clearly erroneous. \
+Use flag only if you want to preserve the outlier information.
+If no column clearly meets these criteria, return an empty list.
+
+━━━ FEATURE STEPS ━━━
+Be very conservative. Only add a step if the column genuinely needs it.
+
+Categorical columns (low-cardinality strings):
+• ≤ 5 unique values → ohe (one-hot encoding).
+• > 5 unique values AND regression/forecasting task → target_encode.
+• > 5 unique values AND classification task → label_encode.
+
+Numeric columns:
+• Only apply minmax or standard scaling if the model requires it \
+(e.g. distance-based models). For tree-based tasks, skip scaling entirely unless \
+the report suggests the task needs it.
+• Only apply log transform if the column is heavily right-skewed (skew > 2) \
+AND all values are non-negative.
+
+Datetime columns — strict rules:
+• DO NOT decompose a datetime column unless the column name or task type strongly \
+implies time-based seasonality (e.g. a column named "timestamp" in a forecasting task \
+where month/hour patterns clearly matter).
+• If the date is effectively an ordered index (e.g. "Date" in a stock price dataset), \
+DO NOT decompose it — either drop it or convert it to a numeric ordinal once in \
+cleaning_steps.
+• If decomposition IS justified, extract the MINIMUM useful components only \
+(e.g. for monthly seasonality: month only; for intraday patterns: hour only). \
+NEVER extract all of year+month+day+hour+dayofweek+quarter unless each component \
+has a specific stated reason.
+• Cyclical encoding (technique = cyclical) is only appropriate for periodic integer \
+columns (month 1–12, hour 0–23, dayofweek 0–6) that have ALREADY been extracted.
+
+Avoid redundant steps: do not scale a column that will be one-hot encoded; \
+do not encode the target column; do not add a step with no clear benefit.
+
+━━━ VALIDATION STEPS ━━━
+Add checks for: no remaining nulls in key columns, target column still present, \
+shape sanity (rows not reduced by > 50%), dtype correctness.
+For classification with class imbalance > 0.7, add a note recommending \
+class_weight='balanced'.
+
+Return ONLY the JSON object — no explanation, no markdown.\
 """
 
 _RETRY_PROMPT = (

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import subprocess
 import sys
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _MAX_RETRIES = 3
+_EXEC_TIMEOUT = 300   # seconds per attempt (5 min is plenty for ≤100k rows)
 
 _SYSTEM_PROMPT = (
     "You are an expert Python ML engineer. "
@@ -96,15 +98,25 @@ class ExecutorAgent(BaseAgent):
         )
 
         # --- run the script -----------------------------------------------
+        # On Windows, CREATE_NEW_PROCESS_GROUP isolates the child from the
+        # parent's Ctrl-C / job-object signals (e.g. those fired by uvicorn's
+        # watchfiles reload), preventing spurious 0xC000013A crashes.
+        _extra_kwargs = (
+            {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+            if sys.platform == "win32"
+            else {}
+        )
+
         try:
             result = subprocess.run(
                 [sys.executable, str(script_path)],
                 capture_output=True,
                 text=True,
-                timeout=120,
+                timeout=_EXEC_TIMEOUT,
+                **_extra_kwargs,
             )
         except subprocess.TimeoutExpired:
-            msg = f"Script execution timed out after 120 s (attempt {state['retry_count'] + 1})."
+            msg = f"Script execution timed out after {_EXEC_TIMEOUT} s (attempt {state['retry_count'] + 1})."
             logger.error(msg)
             state["errors"].append(msg)
             return self._attempt_fix(

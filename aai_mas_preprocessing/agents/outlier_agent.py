@@ -42,26 +42,26 @@ IQR method  (method = "iqr"):
   lower, upper = Q1 - 1.5 * IQR, Q3 + 1.5 * IQR
   action = "clip"   → df[col] = df[col].clip(lower=lower, upper=upper)
   action = "remove" → df = df[(df[col] >= lower) & (df[col] <= upper)]  (use .copy())
-  action = "flag"   → df["{col}_outlier_flag"] = ~df[col].between(lower, upper)
+  action = "flag"   → df["{{col}}_outlier_flag"] = ~df[col].between(lower, upper)
 
 Z-score method  (method = "zscore"):
   mean, std = df[col].mean(), df[col].std()
   z         = (df[col] - mean) / std
   action = "clip"   → df[col] = df[col].clip(lower=mean - 3*std, upper=mean + 3*std)
   action = "remove" → df = df[z.abs() <= 3].copy()
-  action = "flag"   → df["{col}_outlier_flag"] = z.abs() > 3
+  action = "flag"   → df["{{col}}_outlier_flag"] = z.abs() > 3
 
 IsolationForest method  (method = "isolation_forest"):
   Fit IsolationForest(contamination=0.05, random_state=42) on df[[col]].
   Predict labels (-1 = outlier, 1 = inlier).
   Always flag (regardless of action field):
-    df["{col}_outlier_flag"] = (model.predict(df[[col]]) == -1)
-  If action = "remove": also drop rows where {col}_outlier_flag is True, then drop the flag column.
+    df["{{col}}_outlier_flag"] = (model.predict(df[[col]]) == -1)
+  If action = "remove": also drop rows where {{col}}_outlier_flag is True, then drop the flag column.
 
 Important:
 - Process each step independently; do NOT modify the target column `{target_column}`.
 - When action = "remove" and df is reassigned, always call .copy() to avoid SettingWithCopyWarning.
-- Use descriptive variable names per column (e.g. q1_{col}, q3_{col}) to avoid collisions.
+- Use descriptive variable names per column (e.g. q1_{{col}}, q3_{{col}}) to avoid collisions.
 - Return only the Python code block — no explanation, no markdown fences.\
 """
 

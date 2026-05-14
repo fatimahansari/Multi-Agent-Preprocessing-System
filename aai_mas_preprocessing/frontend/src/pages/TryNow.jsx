@@ -23,6 +23,7 @@ export default function TryNow() {
   const [finalState, setFinalState] = useState(null);
   const [runError, setRunError] = useState("");
   const esRef = useRef(null);
+  const planFromSseRef = useRef(null);
 
   const handleFileDrop = useCallback((e) => {
     e.preventDefault(); setDragOver(false);
@@ -90,13 +91,22 @@ export default function TryNow() {
     es.onmessage = (e) => {
       try {
         const evt = JSON.parse(e.data);
-        if (evt.type === "done") {
+        if (evt.type === "plan") {
+          try { planFromSseRef.current = JSON.parse(evt.message); } catch { /* ignore */ }
+        } else if (evt.type === "done") {
           setRunStatus(evt.status === "done" ? "done" : "error");
           es.close();
           fetch(`${API}/api/result/${rid}`)
-            .then((r) => r.json())
-            .then((r) => setFinalState(r.final_state))
-            .catch(() => {});
+            .then((r) => {
+              if (!r.ok) throw new Error(`HTTP ${r.status}`);
+              return r.json();
+            })
+            .then((r) => { if (r.final_state) setFinalState(r.final_state); })
+            .catch(() => {
+              // /api/result unavailable (e.g. server reloaded) — synthesize a
+              // minimal finalState from what the SSE plan event already gave us.
+              setFinalState((prev) => prev ?? { plan: planFromSseRef.current, errors: [], status: evt.status });
+            });
         } else {
           setEvents((prev) => [...prev, evt]);
         }
@@ -112,13 +122,14 @@ export default function TryNow() {
 
   const reset = () => {
     if (esRef.current) esRef.current.close();
+    planFromSseRef.current = null;
     setStep(0); setFile(null); setCsvPath(""); setColumns([]);
     setTargetCol(""); setEvents([]); setRunStatus("idle");
     setFinalState(null); setRunError(""); setRunId(null);
   };
 
   return (
-    <main style={{ paddingTop: 80, minHeight: "100vh" }}>
+    <main style={{ paddingTop: 80, minHeight: "100vh", background: "transparent" }}>
       <div className="container" style={{ paddingTop: 40, paddingBottom: 80 }}>
 
         {/* Page header */}
@@ -185,10 +196,10 @@ export default function TryNow() {
                   onDrop={handleFileDrop}
                   onClick={() => fileRef.current?.click()}
                   style={{
-                    border: `2px dashed ${dragOver ? "var(--primary)" : file ? "var(--accent)" : "rgba(255,255,255,0.15)"}`,
+                    border: `2px dashed ${dragOver ? "var(--primary)" : file ? "var(--accent)" : "rgba(180,80,0,0.18)"}`,
                     borderRadius: 14, padding: "48px 24px", textAlign: "center",
                     cursor: "pointer", transition: "all 0.2s ease",
-                    background: dragOver ? "rgba(249,115,22,0.1)" : file ? "rgba(250,204,21,0.12)" : "transparent",
+                    background: dragOver ? "rgba(234,108,0,0.07)" : file ? "rgba(217,119,6,0.07)" : "rgba(249,115,22,0.02)",
                   }}
                 >
                   <input ref={fileRef} type="file" accept=".csv" style={{ display: "none" }}
@@ -198,16 +209,16 @@ export default function TryNow() {
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
                     {file ? (
                       <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                        <circle cx="20" cy="20" r="19" stroke="var(--accent)" strokeWidth="1.5" />
-                        <polyline points="12,21 18,27 29,14" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="20" cy="20" r="19" stroke="var(--primary)" strokeWidth="1.5" />
+                        <polyline points="12,21 18,27 29,14" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     ) : (
                       <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                        <rect x="8" y="4" width="18" height="24" rx="3" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
-                        <path d="M26 4 L34 12 L26 12 Z" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" strokeLinejoin="round" />
-                        <line x1="13" y1="16" x2="23" y2="16" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
-                        <line x1="13" y1="20" x2="21" y2="20" stroke="rgba(255,255,255,0.25)" strokeWidth="1.5" />
-                        <circle cx="30" cy="30" r="8" fill="rgba(249,115,22,0.25)" stroke="var(--primary)" strokeWidth="1.5" />
+                        <rect x="8" y="4" width="18" height="24" rx="3" stroke="rgba(180,80,0,0.35)" strokeWidth="1.5" />
+                        <path d="M26 4 L34 12 L26 12 Z" stroke="rgba(180,80,0,0.35)" strokeWidth="1.5" strokeLinejoin="round" />
+                        <line x1="13" y1="16" x2="23" y2="16" stroke="rgba(180,80,0,0.25)" strokeWidth="1.5" />
+                        <line x1="13" y1="20" x2="21" y2="20" stroke="rgba(180,80,0,0.25)" strokeWidth="1.5" />
+                        <circle cx="30" cy="30" r="8" fill="rgba(234,108,0,0.14)" stroke="var(--primary)" strokeWidth="1.5" />
                         <line x1="30" y1="26" x2="30" y2="34" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" />
                         <line x1="26" y1="30" x2="34" y2="30" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
@@ -253,7 +264,7 @@ export default function TryNow() {
                         <option
                           key={c}
                           value={c}
-                          style={{ backgroundColor: "#1c1d33", color: "#f1f5f9" }}
+                          style={{ backgroundColor: "#fff", color: "#1c0f00" }}
                         >
                           {c}
                         </option>
@@ -283,13 +294,13 @@ export default function TryNow() {
             {/* Step 2: Running */}
             {step === 2 && (
               <>
-                <ProgressPanel events={events} status={runStatus} finalState={finalState} />
+                <ProgressPanel events={events} status={runStatus} finalState={finalState} runId={runId} />
 
                 {runError && (
                   <div style={{
                     padding: "14px 18px", borderRadius: 10,
-                    background: "rgba(239,68,68,0.08)",
-                    border: "1px solid rgba(239,68,68,0.25)",
+                    background: "rgba(220,38,38,0.06)",
+                    border: "1px solid rgba(220,38,38,0.20)",
                     color: "var(--danger)", fontSize: "0.87rem",
                   }}>
                     {runError}
@@ -347,8 +358,8 @@ function Spinner() {
 
 const inputStyle = {
   width: "100%", padding: "10px 14px", borderRadius: 8,
-  background: "rgba(255,255,255,0.05)",
-  border: "1px solid rgba(255,255,255,0.12)",
+  background: "#fff",
+  border: "1px solid rgba(180,80,0,0.18)",
   color: "var(--text)", fontFamily: "var(--font-mono)", fontSize: "0.88rem",
   outline: "none", transition: "border-color 0.2s",
 };
@@ -357,6 +368,6 @@ const selectStyle = {
   ...inputStyle,
   cursor: "pointer",
   fontFamily: "var(--font-sans)",
-  backgroundColor: "#1c1d33",
-  color: "#f1f5f9",
+  backgroundColor: "#fff",
+  color: "var(--text)",
 };

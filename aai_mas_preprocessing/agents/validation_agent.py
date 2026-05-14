@@ -72,11 +72,11 @@ class ValidationAgent(BaseAgent):
 
     def run(self, state: "MASState") -> "MASState":
         """Generate validation code via LLM and store it in state."""
-        logger.info("[ValidationAgent] Building validation prompt …")
+        self._log(state, "Building validation prompt …")
 
         user_prompt = self._build_prompt(state)
 
-        logger.info("[ValidationAgent] Calling LLM …")
+        self._log(state, "Calling LLM for validation code …")
         try:
             code_snippet = self._call_llm(
                 system_prompt=_SYSTEM_PROMPT,
@@ -86,13 +86,13 @@ class ValidationAgent(BaseAgent):
             msg = f"ValidationAgent LLM call failed: {exc}"
             logger.error(msg)
             state["errors"].append(msg)
-            # Store an empty-but-safe fallback so the pipeline can continue.
             state["agent_outputs"]["validation"] = _FALLBACK_CODE
+            self._log(state, "LLM unavailable — fallback validation code stored.")
             return state
 
         cleaned = _strip_code_fences(code_snippet)
         state["agent_outputs"]["validation"] = cleaned
-        logger.info("[ValidationAgent] Code snippet stored in agent_outputs.")
+        self._log(state, f"Code snippet generated ({len(cleaned)} chars).")
         return state
 
     # ------------------------------------------------------------------

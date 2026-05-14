@@ -45,14 +45,14 @@ ohe (One-Hot Encoding):
   Do NOT hardcode any downstream column names after this step.
 
 label_encode (Label Encoding):
-  le_{col} = LabelEncoder()
-  df["{col}_encoded"] = le_{col}.fit_transform(df["{col}"].astype(str))
-  df = df.drop(columns=["{col}"])
+  le_{{col}} = LabelEncoder()
+  df["{{col}}_encoded"] = le_{{col}}.fit_transform(df["{{col}}"].astype(str))
+  df = df.drop(columns=["{{col}}"])
 
 target_encode (Target Encoding — regression/classification only):
-  _target_map_{col} = df.groupby("{col}")["{target_column}"].mean()
-  df["{col}"] = df["{col}"].map(_target_map_{col})
-  Fill any unmapped NaN with the global mean: df["{col}"] = df["{col}"].fillna(df["{target_column}"].mean())
+  _target_map_{{col}} = df.groupby("{{col}}")["{{target_column}}"].mean()
+  df["{{col}}"] = df["{{col}}"].map(_target_map_{{col}})
+  Fill any unmapped NaN with the global mean: df["{{col}}"] = df["{{col}}"].fillna(df["{{target_column}}"].mean())
 
 minmax (Min-Max Scaling):
   minmax_scaler = MinMaxScaler()
@@ -64,16 +64,16 @@ standard (Standard Scaling):
 
 log (Log Transform):
   Apply numpy.log1p to each specified column:
-  df["{col}"] = np.log1p(df["{col}"].clip(lower=0))
+  df["{{col}}"] = np.log1p(df["{{col}}"].clip(lower=0))
   (clip at 0 first to guard against negative values from upstream clipping)
 
 cyclical (Cyclical Encoding for already-extracted integer columns):
   For a month column (period = 12):
-    df["{col}_sin"] = np.sin(2 * np.pi * df["{col}"] / 12)
-    df["{col}_cos"] = np.cos(2 * np.pi * df["{col}"] / 12)
+    df["{{col}}_sin"] = np.sin(2 * np.pi * df["{{col}}"] / 12)
+    df["{{col}}_cos"] = np.cos(2 * np.pi * df["{{col}}"] / 12)
   For a dayofweek column (period = 7):
-    df["{col}_sin"] = np.sin(2 * np.pi * df["{col}"] / 7)
-    df["{col}_cos"] = np.cos(2 * np.pi * df["{col}"] / 7)
+    df["{{col}}_sin"] = np.sin(2 * np.pi * df["{{col}}"] / 7)
+    df["{{col}}_cos"] = np.cos(2 * np.pi * df["{{col}}"] / 7)
   Drop the original integer column after encoding.
 
 ### Important constraints

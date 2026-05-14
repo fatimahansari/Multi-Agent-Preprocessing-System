@@ -49,13 +49,18 @@ a pandas DataFrame called `df`.
    - Any column with ≥ 50 % nulls → drop all rows where that column is null.
 4. For each datetime column identified in the steps:
    a. Parse it with pd.to_datetime (errors='coerce').
-   b. Extract and add new columns: _year, _month, _day, _dayofweek, _quarter.
-   c. Add cyclical encodings:
-      _month_sin  = sin(2π * month  / 12)
-      _month_cos  = cos(2π * month  / 12)
-      _dow_sin    = sin(2π * dayofweek / 7)
-      _dow_cos    = cos(2π * dayofweek / 7)
-   d. Drop the original datetime column after extraction.
+   b. Look at the step's "action" field to decide what to do next:
+      - action = "drop" or "ordinal"   → convert to a numeric ordinal
+        (df[col] = df[col].astype(np.int64) // 10**9) then done.
+      - action = "extract_minimal" with a "components" list → extract ONLY the
+        components listed in the step (e.g. ["month"] or ["hour", "dayofweek"]).
+        Name each new column as <original_col>_<component>.
+        Apply cyclical encoding ONLY to periodic components listed in "cyclical"
+        field of the step; drop the integer column after encoding.
+      - No explicit action / action = "parse_only" → just parse to datetime and
+        leave as-is (the feature engineer will handle it if needed).
+   c. Drop the original datetime string column after any extraction.
+   d. NEVER extract more components than the step explicitly requests.
 5. Drop every free-text column explicitly flagged in the cleaning steps.
 6. Do NOT touch the target column `{target_column}` in any step.
 

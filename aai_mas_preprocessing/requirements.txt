@@ -1,0 +1,8 @@
+langgraph
+langchain-core
+pandas
+scikit-learn
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv

@@ -1,20 +1,20 @@
 # IntelliPrep MAS: Multi-Agent Preprocessing System
 
-**Course:** Agentic AI (AAI) — 8th Semester, FAST-NUCES Karachi
+**Course:** Agentic AI (AAI) 
 
 ---
 
 ## Background
 
 IntelliPrep began as a monolithic preprocessing agent: a single Python class that
-profiled a CSV, inferred the ML task type, decided on cleaning and feature-engineering
-strategies, generated code, and executed it — all inside one tightly-coupled workflow.
+profiled a CSV, inferred the ML task type, decided on cleaning and feature engineering
+strategies, generated code, and executed it all inside a tightly coupled workflow.
 While functional, the monolith was fragile: any change to outlier logic touched the
 same file as datetime parsing, LLM prompts were mixed with deterministic pandas code,
 and the self-healing executor had no clean way to retry individual stages.
 Converting the system to a **Multi-Agent System (MAS)** decouples each concern into a
 dedicated agent with a single responsibility, allows the LangGraph orchestrator to
-compose them as nodes in a directed graph, and makes the pipeline fault-tolerant — a
+compose them as nodes in a directed graph, and makes the pipeline fault tolerant — a
 failure in one specialist agent appends to `state["errors"]` and the rest of the
 pipeline continues rather than crashing entirely.
 
